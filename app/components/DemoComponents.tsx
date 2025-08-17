@@ -1,21 +1,13 @@
 "use client";
 
-import { type ReactNode, useCallback, useMemo, useState } from "react";
+import React, { type ReactNode, useState } from "react";
 import { useAccount } from "wagmi";
+import { useSpring, animated } from 'react-spring';
+import { useDrag } from '@use-gesture/react';
+import Image from 'next/image';
 import {
-  Transaction,
-  TransactionButton,
-  TransactionToast,
-  TransactionToastAction,
-  TransactionToastIcon,
-  TransactionToastLabel,
-  TransactionError,
-  TransactionResponse,
-  TransactionStatusAction,
-  TransactionStatusLabel,
-  TransactionStatus,
-} from "@coinbase/onchainkit/transaction";
-import { useNotification } from "@coinbase/onchainkit/minikit";
+  ConnectWallet,
+} from "@coinbase/onchainkit/wallet";
 
 type ButtonProps = {
   children: ReactNode;
@@ -84,7 +76,7 @@ function Card({
   className = "",
   onClick,
 }: CardProps) {
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (onClick && (e.key === "Enter" || e.key === " ")) {
       e.preventDefault();
       onClick();
@@ -158,24 +150,366 @@ type HomeProps = {
 };
 
 export function Home({ setActiveTab }: HomeProps) {
+  const { isConnected } = useAccount();
+
+  // If wallet is connected, show the Tinder-like UI
+  if (isConnected) {
+    return <TinderLikeUI setActiveTab={setActiveTab} />;
+  }
+
+  // If wallet is not connected, show the connect wallet screen
   return (
     <div className="space-y-6 animate-fade-in">
-      <Card title="My First Mini App">
-        <p className="text-[var(--app-foreground-muted)] mb-4">
-          This is a minimalistic Mini App built with OnchainKit components.
+      {/* Hero Section - Prediction Market */}
+      <div className="bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 rounded-2xl p-6 text-white">
+        <h1 className="text-2xl font-bold mb-2">🔮 Prediction Market</h1>
+        <p className="text-sm opacity-90 mb-4">
+          Swipe to predict the future. Win rewards for accurate predictions.
         </p>
-        <Button
-          onClick={() => setActiveTab("features")}
-          icon={<Icon name="arrow-right" size="sm" />}
-        >
-          Explore Features
-        </Button>
-      </Card>
+        <ConnectWallet className="bg-white/20 hover:bg-white/30 text-white border-0 inline-flex items-center justify-center font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#0052FF] disabled:opacity-50 disabled:pointer-events-none text-sm px-4 py-2 rounded-lg">
+          <span className="flex items-center mr-2">
+            <span className="text-lg">💰</span>
+          </span>
+          Connect Wallet
+        </ConnectWallet>
+      </div>
 
-      <TodoList />
-
-      <TransactionCard />
+      {/* Features Grid */}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="bg-[var(--app-card-bg)] rounded-xl p-4 text-center">
+          <div className="text-2xl mb-2">📊</div>
+          <div className="text-sm font-medium">Live Markets</div>
+          <div className="text-xs opacity-75">Real-time odds</div>
+        </div>
+        <div className="bg-[var(--app-card-bg)] rounded-xl p-4 text-center">
+          <div className="text-2xl mb-2">💰</div>
+          <div className="text-sm font-medium">Win Rewards</div>
+          <div className="text-xs opacity-75">Earn from predictions</div>
+        </div>
+        <div className="bg-[var(--app-card-bg)] rounded-xl p-4 text-center">
+          <div className="text-2xl mb-2">🏆</div>
+          <div className="text-sm font-medium">Leaderboard</div>
+          <div className="text-xs opacity-75">Compete globally</div>
+        </div>
+        <div className="bg-[var(--app-card-bg)] rounded-xl p-4 text-center">
+          <div className="text-2xl mb-2">⚡</div>
+          <div className="text-sm font-medium">Instant Bets</div>
+          <div className="text-xs opacity-75">One swipe betting</div>
+        </div>
+      </div>
     </div>
+  );
+}
+
+// Mock data for people/predictions with photo placeholders
+const mockPeople = [
+  {
+    id: 1,
+    name: "Alex Chen",
+    age: 28,
+    prediction: "ETH will reach $4,000 by end of 2024",
+    confidence: "85%",
+    category: "Crypto",
+    photo: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=600&fit=crop&crop=face",
+    bio: "Crypto analyst with 5+ years experience. Bullish on Ethereum's potential.",
+  },
+  {
+    id: 2,
+    name: "Sarah Kim",
+    age: 24,
+    prediction: "Farcaster will hit 1M daily users",
+    confidence: "72%",
+    category: "Social",
+    photo: "https://images.unsplash.com/photo-1494790108755-2616c5e8b7af?w=400&h=600&fit=crop&crop=face",
+    bio: "Social media strategist. Believes in decentralized social platforms.",
+  },
+  {
+    id: 3,
+    name: "Marcus Johnson",
+    age: 32,
+    prediction: "Base TVL will exceed $10B",
+    confidence: "68%",
+    category: "DeFi",
+    photo: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400&h=600&fit=crop&crop=face",
+    bio: "DeFi researcher focused on Layer 2 solutions and scaling.",
+  },
+  {
+    id: 4,
+    name: "Emma Rodriguez",
+    age: 29,
+    prediction: "Bitcoin will reach new ATH",
+    confidence: "91%",
+    category: "Crypto",
+    photo: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400&h=600&fit=crop&crop=face",
+    bio: "Bitcoin maximalist and technical analyst. Strong believer in digital gold.",
+  },
+];
+
+interface TinderLikeUIProps {
+  setActiveTab: (tab: string) => void;
+}
+
+function TinderLikeUI({ setActiveTab }: TinderLikeUIProps) {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [gone] = useState(() => new Set<number>());
+
+  const currentPerson = mockPeople[currentIndex];
+  const nextPerson = mockPeople[currentIndex + 1];
+
+  // Spring animation for the current card
+  const [props, api] = useSpring(() => ({
+    x: 0,
+    y: 0,
+    scale: 1,
+    rot: 0,
+    opacity: 1,
+    config: {
+      friction: 50,
+      tension: 500,
+      mass: 1
+    },
+  }));
+
+  // Spring animation for the next card
+  const [nextProps, nextApi] = useSpring(() => ({
+    scale: 0.95,
+    opacity: 0.7,
+    config: {
+      friction: 60,
+      tension: 400
+    },
+  }));
+
+  // Drag gesture handler
+  const bind = useDrag(({
+    active,
+    movement: [mx],
+    direction: [xDir],
+    velocity: [vx],
+  }) => {
+    const trigger = vx > 0.2; // Trigger threshold for swipe
+    const dir = xDir < 0 ? -1 : 1;
+    const isGone = !active && trigger;
+    const x = isGone ? (200 + window.innerWidth) * dir : active ? mx : 0;
+    const rot = mx / 100 + (isGone ? dir * 10 * vx : 0);
+    const scale = active ? 1.05 : 1;
+    const opacity = isGone ? 0 : 1;
+
+    if (isGone) {
+      gone.add(currentIndex);
+
+      // Handle the swipe action
+      if (dir === 1) {
+        console.log('Liked:', currentPerson?.prediction);
+      } else {
+        console.log('Disliked:', currentPerson?.prediction);
+      }
+    }
+
+    // Animate current card
+    api({
+      x,
+      rot,
+      scale,
+      opacity,
+      config: {
+        friction: 50,
+        tension: active ? 800 : isGone ? 200 : 500,
+        mass: 1
+      },
+      onRest: () => {
+        if (isGone) {
+          setCurrentIndex(prev => (prev + 1) % mockPeople.length);
+          gone.delete(currentIndex);
+          // Reset the card position
+          api.set({ x: 0, rot: 0, scale: 1, opacity: 1 });
+        }
+      },
+    });
+
+    // Animate next card to come forward
+    if (nextPerson) {
+      nextApi({
+        scale: active ? 0.97 : 0.95,
+        opacity: active ? 0.9 : 0.7,
+      });
+    }
+  });
+
+  if (!currentPerson) {
+    return (
+      <div className="text-center space-y-4 animate-fade-in">
+        <div className="text-4xl">🎉</div>
+        <h2 className="text-xl font-bold text-[var(--app-foreground)]">All caught up!</h2>
+        <p className="text-[var(--app-foreground-muted)]">Check back later for more predictions.</p>
+        <div className="space-y-3">
+          <button
+            onClick={() => setCurrentIndex(0)}
+            className="px-6 py-2 bg-[var(--app-accent)] text-white rounded-lg hover:bg-[var(--app-accent-hover)] transition-colors"
+          >
+            Start Over
+          </button>
+          <button
+            onClick={() => setActiveTab("home")}
+            className="px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+          >
+            Back to Home
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      {/* Header */}
+      <div className="text-center">
+        <h1 className="text-2xl font-bold text-[var(--app-foreground)] mb-1">
+          🔮 Prediction Market
+        </h1>
+        <p className="text-sm text-[var(--app-foreground-muted)]">
+          Swipe left to disagree, right to agree
+        </p>
+      </div>
+
+      {/* Card Stack Container */}
+      <div className="relative h-[520px] flex items-center justify-center overflow-hidden">
+        {/* Next card (background) */}
+        {nextPerson && (
+          <animated.div
+            style={nextProps}
+            className="absolute inset-4 bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl shadow-xl overflow-hidden"
+          >
+            <CardContent person={nextPerson} />
+          </animated.div>
+        )}
+
+        {/* Current card (foreground) */}
+        <animated.div
+          {...bind(currentIndex)}
+          style={{
+            ...props,
+            touchAction: 'none',
+          }}
+          className="absolute inset-4 bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl shadow-2xl overflow-hidden cursor-grab active:cursor-grabbing select-none"
+        >
+          <CardContent person={currentPerson} />
+
+          {/* Swipe indicators */}
+          <animated.div
+            style={{
+              opacity: props.x.to(x => Math.abs(x) / 100),
+              left: props.x.to(x => x > 0 ? '20px' : 'auto'),
+              right: props.x.to(x => x < 0 ? '20px' : 'auto'),
+            }}
+            className="absolute top-1/2 transform -translate-y-1/2 pointer-events-none z-10"
+          >
+            <animated.div
+              style={{
+                color: props.x.to(x => x > 0 ? '#10B981' : '#EF4444'),
+                transform: props.x.to(x => `scale(${Math.min(Math.abs(x) / 100, 1.5)})`),
+              }}
+              className="text-6xl font-bold drop-shadow-lg"
+            >
+              {props.x.to(x => x > 50 ? '✓' : x < -50 ? '✗' : '')}
+            </animated.div>
+          </animated.div>
+
+          {/* Colored overlay for swipe feedback */}
+          <animated.div
+            style={{
+              opacity: props.x.to(x => Math.abs(x) / 300),
+              backgroundColor: props.x.to(x => x > 0 ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'),
+            }}
+            className="absolute inset-0 pointer-events-none"
+          />
+        </animated.div>
+      </div>
+
+      {/* Instructions */}
+      <div className="text-center text-sm text-[var(--app-foreground-muted)] space-y-2">
+        <div className="flex justify-center items-center space-x-8">
+          <div className="flex items-center space-x-2 opacity-75">
+            <span className="text-red-400 text-lg">✗</span>
+            <span>Swipe left to disagree</span>
+          </div>
+          <div className="flex items-center space-x-2 opacity-75">
+            <span className="text-green-400 text-lg">✓</span>
+            <span>Swipe right to agree</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Progress indicator */}
+      <div className="flex justify-center space-x-2">
+        {mockPeople.map((_, index) => (
+          <div
+            key={index}
+            className={`w-2 h-2 rounded-full transition-all duration-300 ${index === currentIndex
+              ? 'bg-[var(--app-accent)] scale-125'
+              : index < currentIndex
+                ? 'bg-green-400'
+                : 'bg-gray-300 dark:bg-gray-600'
+              }`}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Separate component for card content to keep it clean
+function CardContent({ person }: { person: typeof mockPeople[0] }) {
+  return (
+    <>
+      {/* Photo */}
+      <div className="h-64 bg-gradient-to-br from-purple-400 to-blue-500 relative overflow-hidden">
+        <Image
+          src={person.photo}
+          alt={person.name}
+          fill
+          className="object-cover transition-transform duration-300"
+          onError={(e) => {
+            e.currentTarget.style.display = 'none';
+          }}
+        />
+        {/* Fallback gradient background */}
+        <div className="absolute inset-0 bg-gradient-to-br from-purple-400 to-blue-500 flex items-center justify-center text-white text-6xl font-bold -z-10">
+          {person.name.charAt(0)}
+        </div>
+
+        {/* Category badge */}
+        <div className="absolute top-4 left-4 px-3 py-1 bg-black/60 backdrop-blur-sm rounded-full text-white text-xs font-medium">
+          {person.category}
+        </div>
+
+        {/* Confidence badge */}
+        <div className="absolute top-4 right-4 px-3 py-1 bg-green-500/90 backdrop-blur-sm rounded-full text-white text-xs font-bold">
+          {person.confidence}
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="p-6 space-y-4">
+        <div>
+          <h2 className="text-xl font-bold text-[var(--app-foreground)] mb-1">
+            {person.name}, {person.age}
+          </h2>
+          <p className="text-sm text-[var(--app-foreground-muted)] leading-relaxed">
+            {person.bio}
+          </p>
+        </div>
+
+        <div className="bg-[var(--app-card-bg)] rounded-xl p-4 border border-[var(--app-card-border)]">
+          <h3 className="font-semibold text-[var(--app-foreground)] mb-2">
+            Prediction:
+          </h3>
+          <p className="text-[var(--app-foreground-muted)] text-sm leading-relaxed">
+            &ldquo;{person.prediction}&rdquo;
+          </p>
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -279,184 +613,5 @@ export function Icon({ name, size = "md", className = "" }: IconProps) {
   );
 }
 
-type Todo = {
-  id: number;
-  text: string;
-  completed: boolean;
-}
-
-function TodoList() {
-  const [todos, setTodos] = useState<Todo[]>([
-    { id: 1, text: "Learn about MiniKit", completed: false },
-    { id: 2, text: "Build a Mini App", completed: true },
-    { id: 3, text: "Deploy to Base and go viral", completed: false },
-  ]);
-  const [newTodo, setNewTodo] = useState("");
-
-  const addTodo = () => {
-    if (newTodo.trim() === "") return;
-
-    const newId =
-      todos.length > 0 ? Math.max(...todos.map((t) => t.id)) + 1 : 1;
-    setTodos([...todos, { id: newId, text: newTodo, completed: false }]);
-    setNewTodo("");
-  };
-
-  const toggleTodo = (id: number) => {
-    setTodos(
-      todos.map((todo) =>
-        todo.id === id ? { ...todo, completed: !todo.completed } : todo,
-      ),
-    );
-  };
-
-  const deleteTodo = (id: number) => {
-    setTodos(todos.filter((todo) => todo.id !== id));
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      addTodo();
-    }
-  };
-
-  return (
-    <Card title="Get started">
-      <div className="space-y-4">
-        <div className="flex items-center space-x-2">
-          <input
-            type="text"
-            value={newTodo}
-            onChange={(e) => setNewTodo(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Add a new task..."
-            className="flex-1 px-3 py-2 bg-[var(--app-card-bg)] border border-[var(--app-card-border)] rounded-lg text-[var(--app-foreground)] placeholder-[var(--app-foreground-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--app-accent)]"
-          />
-          <Button
-            variant="primary"
-            size="md"
-            onClick={addTodo}
-            icon={<Icon name="plus" size="sm" />}
-          >
-            Add
-          </Button>
-        </div>
-
-        <ul className="space-y-2">
-          {todos.map((todo) => (
-            <li key={todo.id} className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <button
-                  type="button"
-                  id={`todo-${todo.id}`}
-                  onClick={() => toggleTodo(todo.id)}
-                  className={`w-5 h-5 rounded-full border flex items-center justify-center ${
-                    todo.completed
-                      ? "bg-[var(--app-accent)] border-[var(--app-accent)]"
-                      : "border-[var(--app-foreground-muted)] bg-transparent"
-                  }`}
-                >
-                  {todo.completed && (
-                    <Icon
-                      name="check"
-                      size="sm"
-                      className="text-[var(--app-background)]"
-                    />
-                  )}
-                </button>
-                <label
-                  htmlFor={`todo-${todo.id}`}
-                  className={`text-[var(--app-foreground-muted)] cursor-pointer ${todo.completed ? "line-through opacity-70" : ""}`}
-                >
-                  {todo.text}
-                </label>
-              </div>
-              <button
-                type="button"
-                onClick={() => deleteTodo(todo.id)}
-                className="text-[var(--app-foreground-muted)] hover:text-[var(--app-foreground)]"
-              >
-                ×
-              </button>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </Card>
-  );
-}
 
 
-function TransactionCard() {
-  const { address } = useAccount();
-
-  // Example transaction call - sending 0 ETH to self
-  const calls = useMemo(() => address
-    ? [
-        {
-          to: address,
-          data: "0x" as `0x${string}`,
-          value: BigInt(0),
-        },
-      ]
-    : [], [address]);
-
-  const sendNotification = useNotification();
-
-  const handleSuccess = useCallback(async (response: TransactionResponse) => {
-    const transactionHash = response.transactionReceipts[0].transactionHash;
-
-    console.log(`Transaction successful: ${transactionHash}`);
-
-    await sendNotification({
-      title: "Congratulations!",
-      body: `You sent your a transaction, ${transactionHash}!`,
-    });
-  }, [sendNotification]);
-
-  return (
-    <Card title="Make Your First Transaction">
-      <div className="space-y-4">
-        <p className="text-[var(--app-foreground-muted)] mb-4">
-          Experience the power of seamless sponsored transactions with{" "}
-          <a
-            href="https://onchainkit.xyz"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-[#0052FF] hover:underline"
-          >
-            OnchainKit
-          </a>
-          .
-        </p>
-
-        <div className="flex flex-col items-center">
-          {address ? (
-            <Transaction
-              calls={calls}
-              onSuccess={handleSuccess}
-              onError={(error: TransactionError) =>
-                console.error("Transaction failed:", error)
-              }
-            >
-              <TransactionButton className="text-white text-md" />
-              <TransactionStatus>
-                <TransactionStatusAction />
-                <TransactionStatusLabel />
-              </TransactionStatus>
-              <TransactionToast className="mb-4">
-                <TransactionToastIcon />
-                <TransactionToastLabel />
-                <TransactionToastAction />
-              </TransactionToast>
-            </Transaction>
-          ) : (
-            <p className="text-yellow-400 text-sm text-center mt-2">
-              Connect your wallet to send a transaction
-            </p>
-          )}
-        </div>
-      </div>
-    </Card>
-  );
-}

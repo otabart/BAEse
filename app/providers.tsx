@@ -3,6 +3,7 @@
 import { type ReactNode } from "react";
 import { base } from "wagmi/chains";
 import { MiniKitProvider } from "@coinbase/onchainkit/minikit";
+import { Toaster } from "react-hot-toast";
 
 export function Providers(props: { children: ReactNode }) {
   return (
@@ -19,6 +20,17 @@ export function Providers(props: { children: ReactNode }) {
       }}
     >
       {props.children}
+      <Toaster
+        position="top-center"
+        toastOptions={{
+          duration: 3000,
+          style: {
+            background: 'var(--app-card-bg)',
+            color: 'var(--app-foreground)',
+            border: '1px solid var(--app-card-border)',
+          },
+        }}
+      />
     </MiniKitProvider>
   );
 }
