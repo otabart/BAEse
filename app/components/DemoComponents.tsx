@@ -1,6 +1,6 @@
 "use client";
 
-import React, { type ReactNode, useState } from "react";
+import React, { type ReactNode, useState, useEffect } from "react";
 import { useAccount } from "wagmi";
 import { useSpring, animated } from 'react-spring';
 import { useDrag } from '@use-gesture/react';
@@ -8,6 +8,9 @@ import Image from 'next/image';
 import {
   ConnectWallet,
 } from "@coinbase/onchainkit/wallet";
+import { useUserProfile } from "../hooks/useUserProfile";
+import { ProfileStatus } from "./ProfileStatus";
+import { GaslessProfileCreation } from "./GaslessProfileCreation";
 
 type ButtonProps = {
   children: ReactNode;
@@ -150,11 +153,107 @@ type HomeProps = {
 };
 
 export function Home({ setActiveTab }: HomeProps) {
-  const { isConnected } = useAccount();
+  const { isConnected, address } = useAccount();
+  const { hasProfile, profile, isCreatingProfile, isWritePending } = useUserProfile();
+  const [mounted, setMounted] = useState(false);
+  const [showProfileCreation, setShowProfileCreation] = useState(false);
 
-  // If wallet is connected, show the Tinder-like UI
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Debug logging for connection and profile state
+  useEffect(() => {
+    console.log('Home component state:', {
+      mounted,
+      isConnected,
+      address,
+      hasProfile,
+      hasProfileType: typeof hasProfile,
+      profile,
+      isCreatingProfile,
+      isWritePending
+    });
+  }, [mounted, isConnected, address, hasProfile, profile, isCreatingProfile, isWritePending]);
+
+  // Prevent hydration mismatch by not checking wallet state until mounted
+  if (!mounted) {
+    return (
+      <div className="space-y-6 animate-fade-in">
+        {/* Hero Section - Prediction Market */}
+        <div className="bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 rounded-2xl p-6 text-white">
+          <h1 className="text-2xl font-bold mb-2">🔮 Prediction Market</h1>
+          <p className="text-sm opacity-90 mb-4">
+            Swipe to predict the future. Win rewards for accurate predictions.
+          </p>
+          <div className="bg-white/20 hover:bg-white/30 text-white border-0 inline-flex items-center justify-center font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#0052FF] disabled:opacity-50 disabled:pointer-events-none text-sm px-4 py-2 rounded-lg">
+            <span className="flex items-center mr-2">
+              <span className="text-lg">💰</span>
+            </span>
+            Loading...
+          </div>
+        </div>
+
+        {/* Features Grid */}
+        <div className="grid grid-cols-2 gap-4">
+          <div className="bg-[var(--app-card-bg)] rounded-xl p-4 text-center">
+            <div className="text-2xl mb-2">📊</div>
+            <div className="text-sm font-medium">Live Markets</div>
+            <div className="text-xs opacity-75">Real-time odds</div>
+          </div>
+          <div className="bg-[var(--app-card-bg)] rounded-xl p-4 text-center">
+            <div className="text-2xl mb-2">💰</div>
+            <div className="text-sm font-medium">Win Rewards</div>
+            <div className="text-xs opacity-75">Earn from predictions</div>
+          </div>
+          <div className="bg-[var(--app-card-bg)] rounded-xl p-4 text-center">
+            <div className="text-2xl mb-2">🏆</div>
+            <div className="text-sm font-medium">Leaderboard</div>
+            <div className="text-xs opacity-75">Compete globally</div>
+          </div>
+          <div className="bg-[var(--app-card-bg)] rounded-xl p-4 text-center">
+            <div className="text-2xl mb-2">⚡</div>
+            <div className="text-sm font-medium">Instant Bets</div>
+            <div className="text-xs opacity-75">One swipe betting</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // If wallet is connected, check profile status first
   if (isConnected) {
-    return <TinderLikeUI setActiveTab={setActiveTab} />;
+    // If user has confirmed profile (not undefined or null), show Tinder-like UI
+    if (hasProfile === true && profile) {
+      return <TinderLikeUI setActiveTab={setActiveTab} />;
+    }
+    
+    // If user explicitly has no profile, show profile creation flow
+    if (hasProfile === false) {
+      return showProfileCreation ? (
+        <GaslessProfileCreation 
+          onComplete={() => {
+            setShowProfileCreation(false);
+            // Stay on home tab, but now user will have profile so will see TinderLikeUI
+          }}
+          onBack={() => setShowProfileCreation(false)}
+        />
+      ) : (
+        <ProfileStatus 
+          onCreateProfile={() => setShowProfileCreation(true)}
+        />
+      );
+    }
+    
+    // If hasProfile is still loading (undefined), show loading state
+    return (
+      <div className="space-y-6 animate-fade-in">
+        <div className="text-center">
+          <div className="text-lg font-medium text-[var(--app-foreground)]">Loading profile...</div>
+          <div className="text-sm text-[var(--app-foreground-muted)] mt-2">Checking your profile status</div>
+        </div>
+      </div>
+    );
   }
 
   // If wallet is not connected, show the connect wallet screen
