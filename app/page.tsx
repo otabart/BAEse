@@ -23,20 +23,33 @@ import { Button } from "./components/DemoComponents";
 import { Icon } from "./components/DemoComponents";
 import { Home } from "./components/DemoComponents";
 import { Features } from "./components/DemoComponents";
+import { PredictionMarket } from "./components/PredictionMarket";
+import { GaslessProfileCreation } from "./components/GaslessProfileCreation";
+import { ProfileStatus } from "./components/ProfileStatus";
 
 export default function App() {
   const { setFrameReady, isFrameReady, context } = useMiniKit();
   const [frameAdded, setFrameAdded] = useState(false);
   const [activeTab, setActiveTab] = useState("home");
+  const [showProfileCreation, setShowProfileCreation] = useState(false);
 
   const addFrame = useAddFrame();
   const openUrl = useOpenUrl();
 
   useEffect(() => {
+    console.log('MiniKit context debug:', {
+      isFrameReady,
+      context,
+      hasContext: !!context,
+      contextClient: context?.client,
+      userAgent: navigator.userAgent,
+      isMiniApp: navigator.userAgent.includes('MiniApp') || navigator.userAgent.includes('Farcaster')
+    });
+    
     if (!isFrameReady) {
       setFrameReady();
     }
-  }, [setFrameReady, isFrameReady]);
+  }, [setFrameReady, isFrameReady, context]);
 
   const handleAddFrame = useCallback(async () => {
     const frameAdded = await addFrame();
@@ -98,6 +111,22 @@ export default function App() {
         <main className="flex-1">
           {activeTab === "home" && <Home setActiveTab={setActiveTab} />}
           {activeTab === "features" && <Features setActiveTab={setActiveTab} />}
+          {activeTab === "prediction-market" && <PredictionMarket setActiveTab={setActiveTab} />}
+          {activeTab === "profile" && (
+            showProfileCreation ? (
+              <GaslessProfileCreation 
+                onComplete={() => {
+                  setShowProfileCreation(false);
+                  setActiveTab("home");
+                }}
+                onBack={() => setShowProfileCreation(false)}
+              />
+            ) : (
+              <ProfileStatus 
+                onCreateProfile={() => setShowProfileCreation(true)}
+              />
+            )
+          )}
         </main>
 
         <footer className="mt-2 pt-4 flex justify-center">
